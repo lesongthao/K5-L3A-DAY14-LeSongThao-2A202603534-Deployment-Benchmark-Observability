@@ -141,7 +141,13 @@ Server: nginx
 
 ### Exercise 3.1 / 3.2: Deploy Agent Part 6 và so sánh `railway.toml` vs `render.yaml`
 
-- **Trạng thái Public URL:** Đang chờ hoàn tất cấu hình tài khoản nền tảng Cloud trong bước triển khai (xem chi tiết tại [DEPLOYMENT.md](DEPLOYMENT.md)).
+- **Public URL đang chạy thực tế trên Railway:** https://k5-l3a-day14-lesongthao-2a202603534-deployment-b-production.up.railway.app (project `protective-energy` / `production`, service `day14-agent` kết nối `Redis` Online, Root Directory `06-lab-complete`; xem chi tiết tại [DEPLOYMENT.md](DEPLOYMENT.md)).
+- **Kết quả kiểm thử 4 lệnh CP6 trên Public URL (đã che `AGENT_API_KEY`):**
+  - `GET /health` -> **`200 OK`**: `{"status":"ok","environment":"production","uptime_seconds":196.0}`
+  - `GET /ready` -> **`200 OK`**: `{"ready":true,"redis":"ok"}`
+  - `POST /ask` (không gửi `X-API-Key`) -> **`401 Unauthorized`**: `{"detail":"Invalid or missing X-API-Key"}`
+  - `POST /ask` (gửi kèm `X-API-Key: $AGENT_API_KEY`) -> **`200 OK`**: `{"question":"What is Docker?","answer":"Container là cách đóng gói app để chạy ở mọi nơi. Build once, run anywhere!","user_id":null,"usage":{"input_tokens":3,"output_tokens":18,"cost_usd":1.125e-05}}`
+- **Ảnh chụp minh chứng triển khai:** [screenshots/dashboard.png](screenshots/dashboard.png), [screenshots/running.png](screenshots/running.png), [screenshots/test.png](screenshots/test.png).
 
 **So sánh `06-lab-complete/railway.toml` và `06-lab-complete/render.yaml`:**
 
@@ -225,6 +231,11 @@ content-type: application/json
 - **Thuật toán sử dụng:** Sliding Window Counter (lưu `deque` chứa timestamp các request gần nhất của từng `user_id`, loại bỏ timestamp cũ hơn `now - window_seconds`).
 - **Giới hạn mặc định:** `rate_limiter_user` cho phép **10 requests / 60 giây**; `rate_limiter_admin` cho phép **100 requests / 60 giây**.
 - **Cách phân biệt/bypass giới hạn cho admin:** Trong `app.py` (dòng 141), khi `user["role"] == "admin"` (ví dụ tài khoản `teacher`), hệ thống chọn `rate_limiter_admin` thay vì `rate_limiter_user` (hoặc có thể kiểm `if role == "admin":` bỏ qua bước `limiter.check()` nếu cần bypass hoàn toàn).
+
+**Trả lời 3 câu hỏi bổ sung Exercise 4.1 (`04-api-gateway/develop/app.py`):**
+1. **Cách kiểm tra API key trong code:** Middleware/dependency `verify_api_key` dùng `APIKeyHeader(name="X-API-Key", auto_error=False)` đọc header `X-API-Key` từ request và đối chiếu với `VALID_API_KEY` nạp từ biến môi trường `AGENT_API_KEY`.
+2. **Response khi gửi sai key:** Trả về **`403 Forbidden`** với nội dung `{"detail":"Invalid API key."}` (khác với khi thiếu hoàn toàn header trả **`401 Unauthorized`**).
+3. **Cách rotate API key không downtime:** Hỗ trợ danh sách nhiều key hợp lệ trong giai đoạn chuyển tiếp (ví dụ đọc `AGENT_API_KEYS` phân tách dấu phẩy và so sánh constant-time qua `hmac.compare_digest` với từng key còn hiệu lực), cấp key mới cho toàn bộ client cập nhật xong rồi mới gỡ key cũ khỏi cấu hình.
 
 ### Exercise 4.4: Cost Guard bằng Redis & Lý do cần cả Rate Limit lẫn Cost Guard
 

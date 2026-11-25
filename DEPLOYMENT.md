@@ -1,34 +1,42 @@
 # Deployment Information
 
 ## Public URL
-*(Đang cập nhật sau khi hoàn tất cấu hình dịch vụ Cloud trên Render/Railway)*
+https://k5-l3a-day14-lesongthao-2a202603534-deployment-b-production.up.railway.app
 
 ## Platform
-Render / Railway
+Railway (`protective-energy` / `production` — service `day14-agent` kết nối `Redis`)
 
-## Test Commands
+## Test Commands & Observed Results
+
+```bash
+export BASE="https://k5-l3a-day14-lesongthao-2a202603534-deployment-b-production.up.railway.app"
+```
 
 ### Health Check
 ```bash
-curl -sS -o /dev/null -w '%{http_code}\n' "$BASE/health"
-# Expected: 200
+curl -sS -w '\nHTTP_CODE:%{http_code}\n' "$BASE/health"
+# {"status":"ok","environment":"production","uptime_seconds":196.0}
+# HTTP_CODE:200
 
-curl -sS -o /dev/null -w '%{http_code}\n' "$BASE/ready"
-# Expected: 200
+curl -sS -w '\nHTTP_CODE:%{http_code}\n' "$BASE/ready"
+# {"ready":true,"redis":"ok"}
+# HTTP_CODE:200
 ```
 
 ### API Test (with authentication)
 ```bash
-curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$BASE/ask" \
+curl -sS -w '\nHTTP_CODE:%{http_code}\n' -X POST "$BASE/ask" \
   -H 'Content-Type: application/json' \
-  -d '{"question":"Hello"}'
-# Expected: 401
+  -d '{"question":"What is Docker?"}'
+# {"detail":"Invalid or missing X-API-Key"}
+# HTTP_CODE:401
 
-curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$BASE/ask" \
+curl -sS -w '\nHTTP_CODE:%{http_code}\n' -X POST "$BASE/ask" \
   -H 'Content-Type: application/json' \
   -H "X-API-Key: $AGENT_API_KEY" \
-  -d '{"question":"Hello"}'
-# Expected: 200
+  -d '{"question":"What is Docker?"}'
+# {"question":"What is Docker?","answer":"Container là cách đóng gói app để chạy ở mọi nơi. Build once, run anywhere!","user_id":null,"usage":{"input_tokens":3,"output_tokens":18,"cost_usd":1.125e-05}}
+# HTTP_CODE:200
 ```
 
 ## Environment Variables Set

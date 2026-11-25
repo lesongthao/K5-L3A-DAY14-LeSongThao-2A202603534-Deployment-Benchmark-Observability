@@ -88,6 +88,13 @@ Chạy trên `golden_dataset.jsonl` (23 câu hỏi) với `MOCK_ERROR_RATE=0`, l
 3. **Vì sao input tokens/s lớn hơn output tokens/s?** PromQL ghi nhận **`input = 1473.3 tokens/s`** so với **`output = 773.8 tokens/s`** (gần gấp đôi). Nguyên nhân là mỗi prompt đầu vào của agent v2 chứa `SYSTEM_PROMPT` + đoạn tài liệu truy xuất từ `KNOWLEDGE_BASE` + câu hỏi người dùng (~81–95 input tokens), dài hơn câu trả lời ngắn gọn ở đầu ra (~46–55 output tokens).
 4. **`curl http://localhost:8080/metrics` trả về gì? Vì sao?** Trả về **`HTTP/1.1 404 Not Found`** từ Nginx (`nginx/1.28.3`). Trong `nginx.conf` (dòng 22–24), block `location = /metrics { return 404; }` chủ động chặn truy cập `/metrics` từ bên ngoài để tránh lộ thông tin nội bộ hệ thống (route, lưu lượng, chi phí, số instance), chỉ cho phép Prometheus scrape trực tiếp trong mạng Docker nội bộ `obs_net`.
 
+**Ghi chú Exercise 7.1 (Phân loại Metric & Tránh Cardinality Explosion):**
+- **3 loại Prometheus metric sử dụng trong service:**
+  - *Counter* (chỉ tăng đơn điệu, đo tốc độ bằng `rate()`): `http_requests_total`, `agent_retrieval_total`.
+  - *Gauge* (tăng/giảm theo trạng thái tức thời): `agent_in_flight_requests` (số request đang xử lý đồng thời — tín hiệu *Saturation*).
+  - *Histogram* (chia bucket phân bố giá trị để tính `histogram_quantile`): `http_request_duration_seconds` và metric mới thêm `agent_question_length_chars` (độ dài câu hỏi theo ký tự).
+- **Vì sao dùng route template (`route.path` như `"/ask"`) thay vì URL gốc:** Nếu lấy URL thô từ client làm nhãn, các đợt quét đường dẫn lạ (`/wp-admin`, `/.env`, `/a1b2c3`) sẽ tạo ra vô số chuỗi thời gian rác (*Cardinality Explosion*), gây phình bộ nhớ RAM Prometheus và làm chậm truy vấn PromQL; dùng template `route.path` giữ tập nhãn cố định và an toàn trong production.
+
 ### 4.2 Thí nghiệm "phá hệ thống"
 
 Trước khi chạy thí nghiệm, đã chạy unit test rule bằng `promtool test rules /p/alert_rules_test.yml` và đạt **`SUCCESS`**.  
